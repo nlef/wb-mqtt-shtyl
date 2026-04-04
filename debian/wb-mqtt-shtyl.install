@@ -1,0 +1,4 @@
+bin/wb-mqtt-shtyl /usr/bin
+wb-mqtt-shtyl.schema.json /usr/share/wb-mqtt-confed/schemas
+wb-mqtt-shtyl.conf /etc
+10wb-mqtt-shtyl /etc/wb-configs.d

@@ -1,0 +1,42 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "title": "wb-mqtt-shtyl",
+    "description": "Configuration schema for wb-mqtt-shtyl UPS monitoring service",
+    "configFile": {
+        "path": "/etc/wb-mqtt-shtyl.conf",
+        "service": "wb-mqtt-shtyl"
+    },
+    "properties": {
+        "type": {
+            "title": "UPS Protocol Type",
+            "type": "string",
+            "enum": ["shtyl", "megatec"],
+            "default": "shtyl",
+            "description": "UPS protocol type"
+        },
+        "port": {
+            "title": "Serial Port",
+            "type": "string",
+            "default": "/dev/ttyUSB0",
+            "description": "Serial port for UPS connection"
+        },
+        "broker": {
+            "title": "MQTT Broker URL",
+            "type": "string",
+            "default": "tcp://localhost:1883",
+            "description": "MQTT broker connection URL"
+        }
+    },
+    "required": ["type"],
+    "translations": {
+        "ru": {
+            "wb-mqtt-shtyl": "Сервис мониторинга ИБП Штиль",
+            "UPS Protocol Type": "Тип протокола ИБП",
+            "shtyl": "Штиль",
+            "megatec": "Megatec",
+            "Serial Port": "Последовательный порт",
+            "MQTT Broker URL": "URL MQTT брокера"
+        }
+    }
+}

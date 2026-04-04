@@ -1,0 +1,12 @@
+[Unit]
+Description=wb-mqtt-shtyl UPS monitoring service
+After=NetworkManager.service mosquitto.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/wb-mqtt-shtyl
+Restart=on-failure
+RestartSec=10
+RestartPreventExitStatus=2 6
+SuccessExitStatus=7
