@@ -69,3 +69,10 @@ systemctl status wb-mqtt-shtyl
 ```bash
 dpkg-buildpackage -rfakeroot -us -uc
 ```
+```bash
+dpkg-buildpackage -T clean
+```
+
+## Соответствие стандартам
+
+Сервис соответствует [Wiren Board Software Conventions](https://github.com/wirenboard/conventions).

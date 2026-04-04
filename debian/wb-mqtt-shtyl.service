@@ -2,6 +2,9 @@
 Description=wb-mqtt-shtyl UPS monitoring service
 After=NetworkManager.service mosquitto.service
 
+[Install]
+WantedBy=multi-user.target
+
 [Service]
 Type=simple
 User=root
