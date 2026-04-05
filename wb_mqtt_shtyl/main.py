@@ -8,8 +8,8 @@ import threading
 import time
 
 from serial import Serial
-
 from wb_common.mqtt_client import MQTTClient
+
 from .protocols import PARSERS, SERIAL_SETTINGS
 
 EXIT_SUCCESS = 0
@@ -37,9 +37,7 @@ class UPSService:
 
         self._logger = logging.getLogger(f"{__name__}.UPSService")
 
-        self._client = MQTTClient(
-            client_id_prefix="wb-mqtt-shtyl", broker_url=broker_url
-        )
+        self._client = MQTTClient(client_id_prefix="wb-mqtt-shtyl", broker_url=broker_url)
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
         self._client.on_message = self._on_message
@@ -132,9 +130,7 @@ class UPSService:
                     self._serial_connected = self._parser.test_connection(self._serial)
                 except Exception as e:
                     self._logger.warning(f"Serial connection error: {e}")
-                if not self._serial_connected and isinstance(
-                    self._parser, MegatecParser
-                ):
+                if not self._serial_connected and isinstance(self._parser, MegatecParser):
                     self._serial.close()
                     self._serial.open()
 
@@ -144,7 +140,7 @@ class UPSService:
 
             try:
                 res = self._parser.parse(answ)
-                self._publish_device()
+                self._logger.debug(f"Parsed response: {res!r}")
                 self._publish_state(res)
             except Exception as e:
                 self._logger.error(f"Parse error: {e}")
@@ -169,7 +165,7 @@ class UPSService:
 
 def load_config():
     try:
-        with open(CONFIG_FILEPATH, "r") as f:
+        with open(CONFIG_FILEPATH) as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
@@ -187,43 +183,33 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
 
-    setup_logging()
+    config = load_config()
 
-    parser = argparse.ArgumentParser(
-        description="wb-mqtt-shtyl - UPS monitoring service"
-    )
+    parser = argparse.ArgumentParser(description="wb-mqtt-shtyl - UPS monitoring service")
     parser.add_argument("--port", help="Serial port")
     parser.add_argument("--broker", help="MQTT broker URL")
     parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        default="INFO",
         help="Logging level",
     )
     args = parser.parse_args(argv)
 
-    logging.getLogger().setLevel(getattr(logging, args.log_level))
-
-    config = load_config()
+    log_level = args.log_level or config.get("log_level", "INFO")
+    setup_logging(getattr(logging, log_level))
+    logging.getLogger().setLevel(getattr(logging, log_level))
 
     ups_type = config.get("type", "shtyl")
     if ups_type not in PARSERS:
-        LOGGER.error(
-            f"Unknown UPS type: {ups_type}. Supported: {', '.join(PARSERS.keys())}"
-        )
+        LOGGER.error(f"Unknown UPS type: {ups_type}. Supported: {', '.join(PARSERS.keys())}")
         return EXIT_CONFIG_ERROR
 
     serial_port = args.port or config.get("port", "/dev/ttyUSB0")
     broker_url = args.broker or config.get("broker", "tcp://localhost:1883")
 
-    serial_port = args.port or config.get("port", "COM7")
-    broker_url = args.broker or config.get("broker", "tcp://172.16.4.175:1883")
-
     LOGGER.info(f"Starting wb-mqtt-shtyl service (type={ups_type}, port={serial_port})")
 
-    service = UPSService(
-        ups_type=ups_type, serial_port=serial_port, broker_url=broker_url
-    )
+    service = UPSService(ups_type=ups_type, serial_port=serial_port, broker_url=broker_url)
     return service.run()
 
 

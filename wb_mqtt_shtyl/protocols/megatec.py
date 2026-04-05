@@ -81,7 +81,7 @@ class MegatecParser(UpsParser):
             res = serial_port.read(1)
             return res != b""
         except serial.SerialException:
-            LOGGER.exception(f"Serial exception")
+            LOGGER.exception("Serial exception")
             return False
 
     def parse(self, data: bytes) -> dict:

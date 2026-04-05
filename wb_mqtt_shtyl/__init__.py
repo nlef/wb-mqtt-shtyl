@@ -1,3 +1,3 @@
-from .main import main, UPSService, load_config
+from .main import UPSService, load_config, main
 
-__all__ = ["main", "UPSService", "load_config"]
+__all__ = ["UPSService", "load_config", "main"]

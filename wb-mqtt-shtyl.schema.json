@@ -26,6 +26,13 @@
             "type": "string",
             "default": "tcp://localhost:1883",
             "description": "MQTT broker connection URL"
+        },
+        "log_level": {
+            "title": "Logging Level",
+            "type": "string",
+            "enum": ["DEBUG", "INFO", "WARNING", "ERROR"],
+            "default": "INFO",
+            "description": "Logging level"
         }
     },
     "required": ["type"],
@@ -36,7 +43,8 @@
             "shtyl": "Штиль",
             "megatec": "Megatec",
             "Serial Port": "Последовательный порт",
-            "MQTT Broker URL": "URL MQTT брокера"
+            "MQTT Broker URL": "URL MQTT брокера",
+            "Logging Level": "Уровень логирования"
         }
     }
 }

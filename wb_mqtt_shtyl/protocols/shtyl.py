@@ -12,9 +12,9 @@ IQ15_MULTIPLIER = 1.0 / pow(2.0, 15.0)
 
 def iq15(buffer, start, mult=1.0):
     return (
-        int.from_bytes(buffer[start : start + 2], byteorder="little", signed=True)
-        * IQ15_MULTIPLIER
-        * mult
+            int.from_bytes(buffer[start: start + 2], byteorder="little", signed=True)
+            * IQ15_MULTIPLIER
+            * mult
     )
 
 
@@ -24,13 +24,13 @@ def iq15_round(buffer, start, mult=1.0):
 
 def u16(buffer, start, mult=1):
     return (
-        int.from_bytes(buffer[start : start + 2], byteorder="little", signed=False)
-        * mult
+            int.from_bytes(buffer[start: start + 2], byteorder="little", signed=False)
+            * mult
     )
 
 
 def u64(buffer, start):
-    return int.from_bytes(buffer[start : start + 8], byteorder="little", signed=False)
+    return int.from_bytes(buffer[start: start + 8], byteorder="little", signed=False)
 
 
 def get_alarm(value, bit):
@@ -112,7 +112,10 @@ class ShtylParser(UpsParser):
         "time_remaining",
         "output_load",
         "battery_temperature",
+        "battery_voltage_target",
         "battery_voltage",
+        "battery_current",
+        "battery_state",
         "alerts",
     ]
     controls = [
@@ -168,17 +171,48 @@ class ShtylParser(UpsParser):
             },
         ),
         (
-            "battery_voltage",
+            "battery_state",
             {
                 "order": 5,
-                "title": {"en": "Battery voltage", "ru": "Напряжение батареи"},
+                "title": {"en": "Battery state", "ru": "Статус батареи"},
+                "readonly": True,
+                "type": "value",
+            },
+        ),
+        (
+            "battery_voltage_target",
+            {
+                "order": 6,
+                "title": {"en": "Battery target voltage", "ru": "Напряжение батареи целевое"},
+                "readonly": True,
                 "type": "voltage",
             },
         ),
         (
+            "battery_voltage",
+            {
+                "order": 7,
+                "title": {"en": "Battery voltage", "ru": "Напряжение батареи"},
+                "precision": 0.1,
+                "readonly": True,
+                "type": "voltage",
+            },
+        ),
+        (
+            "battery_current",
+            {
+                "order": 8,
+                "title": {"en": "Battery current", "ru": "Ток батареи"},
+                "precision": 0.1,
+                "readonly": True,
+                "type": "current",
+            },
+        ),
+
+        (
             "controller_temperature",
             {
-                "order": 6,
+                "order": 9,
                 "title": {
                     "en": "Controller temperature",
                     "ru": "Температура контроллера",
@@ -191,7 +225,7 @@ class ShtylParser(UpsParser):
         (
             "radiator_temperature",
             {
-                "order": 7,
+                "order": 10,
                 "title": {"en": "Radiator temperature", "ru": "Температура радиатора"},
                 "precision": 0.1,
                 "readonly": True,
@@ -201,7 +235,7 @@ class ShtylParser(UpsParser):
         (
             "battery_temperature",
             {
-                "order": 8,
+                "order": 11,
                 "title": {"en": "Battery temperature", "ru": "Температура батареи"},
                 "type": "temperature",
             },
@@ -209,7 +243,7 @@ class ShtylParser(UpsParser):
         (
             "time_remaining",
             {
-                "order": 9,
+                "order": 12,
                 "title": {"en": "Time remaining", "ru": "Оставшееся время работы"},
                 "readonly": True,
                 "type": "value",
@@ -219,7 +253,7 @@ class ShtylParser(UpsParser):
         (
             "output_load",
             {
-                "order": 10,
+                "order": 13,
                 "title": {"en": "Output load", "ru": "Выходная нагрузка"},
                 "readonly": True,
                 "type": "value",
@@ -239,19 +273,53 @@ class ShtylParser(UpsParser):
             res = serial_port.readall()
             return res != b""
         except serial.SerialException:
-            LOGGER.exception(f"Serial exception")
+            LOGGER.exception("Serial exception")
             return False
 
     def parse(self, data: bytes) -> dict:
+
         voltage_phaze = [iq15_round(data, 8 + i * 2, 1000) for i in range(3)]
-        in_freq = iq15_round(data, 44, 100)
-        out_freq = iq15_round(data, 48, 100)
+        curr_phaze = [iq15_round(data, 14 + i * 2, 100) for i in range(3)]
+        bypass_voltage_phaze = [iq15_round(data, 20 + i * 2, 1000) for i in range(3)]
+        out_voltage_phaze = [iq15_round(data, 26 + i * 2, 1000) for i in range(3)]
+        out_curr_active_phaze = [iq15_round(data, 32 + i * 2, 100) for i in range(3)]
+        out_curr_total_phaze = [iq15_round(data, 38 + i * 2, 100) for i in range(3)]
+
+        in_freq_phaze_0 = iq15_round(data, 44, 100)
+        bypass_freq_phaze_0 = iq15_round(data, 46, 100)
+        out_freq_phaze_0 = iq15_round(data, 48, 100)
+
         controller_temp = iq15_round(data, 50, 1000)
         radiator_temp = iq15_round(data, 52, 1000)
         vab_float = iq15_round(data, 54, 1000)
+
+        vab_pos = iq15_round(data, 56, 1000)
+        vab_neg = iq15_round(data, 58, 1000)
+        iab_pos = iq15_round(data, 60, 100)
+        iab_neg = iq15_round(data, 62, 100)
+        p_ab = iq15_round(data, 64, 1000)
+
         t_remaining = u16(data, 66, 60000)
-        out_load = iq15_round(data, 86, 1000)
-        battery_temp = iq15_round(data, 94, 1000)
+
+        state_long = u64(data, 68)
+        state_bits = {
+            "emergency_power_off_state": (state_long >> 0) & 7,
+            "bypass_mode": (state_long >> 3) & 7,
+            "battery_usage_mode": (state_long >> 6) & 7,
+            "battery_charger_state": (state_long >> 9) & 7,
+            "battery_state": (state_long >> 12) & 7,
+            "bypass_grid_state": (state_long >> 19) & 7,
+            "rectifier_grid_state": (state_long >> 16) & 7,
+            "battery_transfer_controller_state": (state_long >> 22) & 7,
+            "inverter_input_source": (state_long >> 25) & 7,
+            "power_factor_corrector_state": (state_long >> 28) & 7,
+            "dc_dc_power_supply_state": (state_long >> 32) & 7,
+            "inverter_state": (state_long >> 35) & 7,
+            "inverter_master_oscillator_state": (state_long >> 38) & 7,
+            "bypass_state": (state_long >> 41) & 7,
+            "output_state": (state_long >> 44) & 7,
+            "load_state": [(state_long >> 48) & 7, (state_long >> 51) & 7],
+        }
 
         alert_long = u64(data, 76)
         alert_bits = {
@@ -311,16 +379,53 @@ class ShtylParser(UpsParser):
         }
         alerts = {name: get_alarm(alert_long, bit) for name, bit in alert_bits.items()}
 
+        pload = iq15_round(data, 84, 1000)
+        out_load_percent_phaze = [iq15_round(data, 86 + i * 2, 1000) for i in range(3)]
+
+        last_time_on_batery = u16(data, 92, 1000)
+        battery_temp = iq15_round(data, 94, 1000)
+
+        full_ress = {
+            "voltage_phaze": voltage_phaze,
+            "curr_phaze": curr_phaze,
+            "bypass_voltage_phaze": bypass_voltage_phaze,
+            "out_voltage_phaze": out_voltage_phaze,
+            "out_curr_active_phaze": out_curr_active_phaze,
+            "out_curr_total_phaze": out_curr_total_phaze,
+            "in_freq_phaze_0": in_freq_phaze_0,
+            "bypass_freq_phaze_0": bypass_freq_phaze_0,
+            "out_freq_phaze_0": out_freq_phaze_0,
+            "controller_temp": controller_temp,
+            "radiator_temp": radiator_temp,
+            "vab_float": vab_float,
+            "vab_pos": vab_pos,
+            "vab_neg": vab_neg,
+            "iab_pos": iab_pos,
+            "iab_neg": iab_neg,
+            "p_ab": p_ab,
+            "t_remaining": t_remaining,
+            "state_bits": state_bits,
+            "alerts": alerts,
+            "pload": pload,
+            "out_load_percent_phaze": out_load_percent_phaze,
+            "last_time_on_batery": last_time_on_batery,
+            "battery_temperature": battery_temp,
+        }
+        LOGGER.debug(f"full_ress: {full_ress}")
+
         return {
             "input_voltage": voltage_phaze[0],
-            "input_frequency": in_freq,
+            "input_frequency": in_freq_phaze_0,
             "output_voltage": iq15_round(data, 26, 1000),
-            "output_frequency": out_freq,
+            "output_frequency": out_freq_phaze_0,
             "controller_temperature": controller_temp,
             "radiator_temperature": radiator_temp,
             "time_remaining": t_remaining,
-            "output_load": out_load,
+            "output_load": out_load_percent_phaze[0],
             "battery_temperature": battery_temp,
-            "battery_voltage": vab_float,
+            "battery_voltage_target": vab_float,
+            "battery_voltage": vab_pos,
+            "battery_current": iab_pos,
+            "battery_state": state_bits["battery_state"],
             "alerts": get_alerts_string(alerts),
         }

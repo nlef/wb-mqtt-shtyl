@@ -1,6 +1,6 @@
 from .base import UpsParser
-from .shtyl import ShtylParser
 from .megatec import MegatecParser
+from .shtyl import ShtylParser
 
 PARSERS = {
     "shtyl": ShtylParser,
@@ -12,4 +12,4 @@ SERIAL_SETTINGS = {
     "megatec": {"baudrate": 2400, "xonxoff": True, "timeout": 1},
 }
 
-__all__ = ["UpsParser", "ShtylParser", "MegatecParser", "PARSERS", "SERIAL_SETTINGS"]
+__all__ = ["PARSERS", "SERIAL_SETTINGS", "MegatecParser", "ShtylParser", "UpsParser"]
