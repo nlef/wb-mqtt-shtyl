@@ -1,6 +1,4 @@
-.devcontainer/
 .vscode/
 .coveragerc
-pyproject.toml
 .idea
 __pycache__

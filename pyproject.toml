@@ -1,0 +1,47 @@
+[project]
+name = "wb-mqtt-shtyl"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "wb_common",
+    "jsonschema",
+    "pyserial",
+    "paho-socket"
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.uv.sources]
+wb_common = { git = "https://github.com/wirenboard/wb-common" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "ANN", "ASYNC", "B", "C4", "DTZ", "T10", "ISC", "ICN", "PIE", "PT", "Q", "RET", "SIM", "TID", "ARG", "PL", "TRY", "RUF"]
+ignore = [
+    "ANN101", "ANN102", "ANN401",  # typing
+    "PLR0913",  # too-many-arguments
+    "PLR2004",  # magic-value-comparison
+    "PLW0603",  # global-statement
+    "TRY003",   # raise-vanilla-jargs
+    "ISC001",   # f-string without interpolation
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["ANN", "PL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.isort]
+profile = "ruff"
+line_length = 110
