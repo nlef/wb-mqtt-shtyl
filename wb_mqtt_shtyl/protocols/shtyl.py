@@ -107,6 +107,7 @@ class ShtylParser(UpsParser):
         "input_frequency",
         "output_voltage",
         "output_frequency",
+        "output_current",
         "controller_temperature",
         "radiator_temperature",
         "time_remaining",
@@ -116,6 +117,8 @@ class ShtylParser(UpsParser):
         "battery_voltage",
         "battery_current",
         "battery_state",
+        "battery_charge_level",
+        "last_time_on_battery",
         "alerts",
     ]
     controls = [
@@ -170,10 +173,22 @@ class ShtylParser(UpsParser):
                 "units": "Hz",
             },
         ),
+
+            (
+            "output_current",
+            {
+                "order": 5,
+                "title": {"en": "Output current", "ru": "Выходной ток"},
+                "precision": 0.1,
+                "readonly": True,
+                "type": "current",
+            },
+        ),
+
         (
             "battery_state",
             {
-                "order": 5,
+                "order": 6,
                 "title": {"en": "Battery state", "ru": "Статус батареи"},
                 "readonly": True,
                 "type": "value",
@@ -182,7 +197,7 @@ class ShtylParser(UpsParser):
         (
             "battery_voltage_target",
             {
-                "order": 6,
+                "order": 7,
                 "title": {"en": "Battery target voltage", "ru": "Напряжение батареи целевое"},
                 "readonly": True,
                 "type": "voltage",
@@ -191,7 +206,7 @@ class ShtylParser(UpsParser):
         (
             "battery_voltage",
             {
-                "order": 7,
+                "order": 8,
                 "title": {"en": "Battery voltage", "ru": "Напряжение батареи"},
                 "precision": 0.1,
                 "readonly": True,
@@ -201,18 +216,28 @@ class ShtylParser(UpsParser):
         (
             "battery_current",
             {
-                "order": 8,
+                "order": 9,
                 "title": {"en": "Battery current", "ru": "Ток батареи"},
                 "precision": 0.1,
                 "readonly": True,
                 "type": "current",
             },
         ),
-
+        (
+            "battery_charge_level",
+            {
+                "order": 10,
+                "title": {"en": "Battery charge level", "ru": "Заряд батареи"},
+                "readonly": True,
+                "precision": 0.01,
+                "type": "value",
+                "units": "%",
+            },
+        ),
         (
             "controller_temperature",
             {
-                "order": 9,
+                "order": 11,
                 "title": {
                     "en": "Controller temperature",
                     "ru": "Температура контроллера",
@@ -225,7 +250,7 @@ class ShtylParser(UpsParser):
         (
             "radiator_temperature",
             {
-                "order": 10,
+                "order": 12,
                 "title": {"en": "Radiator temperature", "ru": "Температура радиатора"},
                 "precision": 0.1,
                 "readonly": True,
@@ -235,7 +260,7 @@ class ShtylParser(UpsParser):
         (
             "battery_temperature",
             {
-                "order": 11,
+                "order": 13,
                 "title": {"en": "Battery temperature", "ru": "Температура батареи"},
                 "type": "temperature",
             },
@@ -243,21 +268,31 @@ class ShtylParser(UpsParser):
         (
             "time_remaining",
             {
-                "order": 12,
+                "order": 14,
                 "title": {"en": "Time remaining", "ru": "Оставшееся время работы"},
                 "readonly": True,
                 "type": "value",
-                "units": "s",
+                "units": "h",
             },
         ),
         (
             "output_load",
             {
-                "order": 13,
+                "order": 15,
                 "title": {"en": "Output load", "ru": "Выходная нагрузка"},
                 "readonly": True,
                 "type": "value",
                 "units": "%",
+            },
+        ),
+        (
+            "last_time_on_battery",
+            {
+                "order": 16,
+                "title": {"en": "Last time on battery", "ru": "Время работы от батареи (последнее)"},
+                "readonly": True,
+                "type": "value",
+                "units": "h",
             },
         ),
     ]
@@ -299,7 +334,9 @@ class ShtylParser(UpsParser):
         iab_neg = iq15_round(data, 62, 100)
         p_ab = iq15_round(data, 64, 1000)
 
+        # no more then 20 hours could be displayed!
         t_remaining = u16(data, 66, 60000)
+        t_remaining_hours = round(t_remaining / (3600 * 1000), 2)
 
         state_long = u64(data, 68)
         state_bits = {
@@ -382,7 +419,9 @@ class ShtylParser(UpsParser):
         pload = iq15_round(data, 84, 1000)
         out_load_percent_phaze = [iq15_round(data, 86 + i * 2, 1000) for i in range(3)]
 
-        last_time_on_batery = u16(data, 92, 1000)
+        last_time_on_battery = u16(data, 92, 1000)
+        last_time_on_battery_hours = round(last_time_on_battery / (3600 * 1000), 2)
+
         battery_temp = iq15_round(data, 94, 1000)
 
         full_ress = {
@@ -408,7 +447,7 @@ class ShtylParser(UpsParser):
             "alerts": alerts,
             "pload": pload,
             "out_load_percent_phaze": out_load_percent_phaze,
-            "last_time_on_batery": last_time_on_batery,
+            "last_time_on_batery": last_time_on_battery,
             "battery_temperature": battery_temp,
         }
         LOGGER.debug(f"full_ress: {full_ress}")
@@ -418,14 +457,17 @@ class ShtylParser(UpsParser):
             "input_frequency": in_freq_phaze_0,
             "output_voltage": iq15_round(data, 26, 1000),
             "output_frequency": out_freq_phaze_0,
+            "output_current":out_curr_total_phaze[0],
             "controller_temperature": controller_temp,
             "radiator_temperature": radiator_temp,
-            "time_remaining": t_remaining,
+            "time_remaining": t_remaining_hours,
             "output_load": out_load_percent_phaze[0],
             "battery_temperature": battery_temp,
             "battery_voltage_target": vab_float,
             "battery_voltage": vab_pos,
             "battery_current": iab_pos,
+            "battery_charge_level":p_ab,
             "battery_state": state_bits["battery_state"],
+            "last_time_on_battery":last_time_on_battery_hours,
             "alerts": get_alerts_string(alerts),
         }
